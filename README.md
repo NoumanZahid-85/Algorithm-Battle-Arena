@@ -2,6 +2,10 @@
 
 An interactive pathfinding visualization application that compares four algorithm champions: **A*** (A-Star), **BFS** (Breadth-First Search), **DFS** (Depth-First Search), and **Dijkstra**. Features automatic maze generation and ML-based algorithm prediction.
 
+<img src="src/images/image1.png" alt="Algorithm Battle Arena Main Interface" width="800">
+
+*Main interface showing the battle arena with algorithm controls and visualization*
+
 ## ✨ Key Features
 
 ### 🎮 Core Features
@@ -11,6 +15,10 @@ An interactive pathfinding visualization application that compares four algorith
 - **🧠 ML Auto-Selector**: Machine learning-based algorithm prediction with confidence scores
 - **🏆 Performance Comparison**: Real-time results with automatic winner detection
 - **📊 Data Collection**: Automatic performance data logging for ML model improvement
+
+<img src="src/images/image2.png" alt="Algorithm Visualization" width="800">
+
+*Algorithms in action - visualizing pathfinding algorithms exploring the maze*
 
 ### 🎯 Maze Generation
 - **Recursive Backtracking Algorithm**: Guarantees solvable mazes
@@ -24,6 +32,10 @@ An interactive pathfinding visualization application that compares four algorith
 - **Confidence Scoring**: Shows prediction confidence (60-95%)
 - **Reason Generation**: Explains why an algorithm is predicted to win
 - **Data Collection**: Automatically logs performance data for future training
+
+<img src="src/images/image3.png" alt="ML Auto-Selector and Prediction" width="800">
+
+*Machine learning prediction system showing algorithm recommendations with confidence scores*
 
 ## 🚀 Quick Start
 
@@ -57,7 +69,11 @@ npm run preview
 | **⭐ A* (A-Star)** | Heuristic search (f(n) = g(n) + h(n)) | Dead ends, optimal paths |
 | **🌊 BFS (Breadth-First)** | Level-by-level queue exploration | Open mazes, low branching |
 | **🔥 DFS (Depth-First)** | Deep stack exploration | High branching, many paths |
-| **⚡ Dijkstra** | Shortest path algorithm | Complex mazes, dead ends |
+| **⚡ Dijkstra** | Shortest path algorithm | Complex mazes, dead ends
+
+<img src="src/images/image4.png" alt="Performance Comparison and Results" width="800">
+
+*Performance comparison showing algorithm results, path lengths, and winner determination*
 
 ## 🛠️ Tech Stack
 
