@@ -104,20 +104,6 @@ Algorithms are compared using:
 1. **Primary**: Path Length (shorter is better)
 2. **Secondary**: Nodes Visited (fewer is better)
 
-## 📝 Generating Report
-
-To generate the final project report:
-
-```bash
-# Install Python dependencies
-pip install -r requirements.txt
-
-# Generate Word document
-python generate_report.py
-```
-
-This creates `Algorithm_Battle_Arena_Final_Report.docx` with all screenshots and documentation.
-
 ## 🎓 Educational Value
 
 This project demonstrates:
