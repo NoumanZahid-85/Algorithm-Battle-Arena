@@ -1,9 +1,13 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import MapGrid from '@/components/MapGrid';
 import Controls from '@/components/Controls';
 import AlgorithmResults from '@/components/AlgorithmResults';
+import AutoSelector from '@/components/AutoSelector';
 import { Cell, Mode, GridState } from '@/types/grid';
-import { findPath, findPathBFS, findPathDFS } from '@/utils/pathfinding';
+import { findPath, findPathBFS, findPathDFS, findPathDijkstra } from '@/utils/pathfinding';
+import { generateMaze, MazeDifficulty } from '@/utils/mazeGenerator';
+import { extractMazeFeatures } from '@/ml/featureExtractor';
+import { collectData } from '@/ml/dataCollector';
 import { useToast } from '@/hooks/use-toast';
 
 const GRID_SIZES = [15, 20, 25] as const;
@@ -39,10 +43,12 @@ const Index = () => {
     isComplete: false,
   });
   const [mode, setMode] = useState<Mode>('start');
+  const [mazeDifficulty, setMazeDifficulty] = useState<MazeDifficulty>('medium');
   const [algorithmResults, setAlgorithmResults] = useState({
     aStar: { pathLength: 0, visitedCount: 0, hasRun: false },
     bfs: { pathLength: 0, visitedCount: 0, hasRun: false },
     dfs: { pathLength: 0, visitedCount: 0, hasRun: false },
+    dijkstra: { pathLength: 0, visitedCount: 0, hasRun: false },
   });
   const { toast } = useToast();
 
@@ -51,6 +57,7 @@ const Index = () => {
       aStar: { pathLength: 0, visitedCount: 0, hasRun: false },
       bfs: { pathLength: 0, visitedCount: 0, hasRun: false },
       dfs: { pathLength: 0, visitedCount: 0, hasRun: false },
+      dijkstra: { pathLength: 0, visitedCount: 0, hasRun: false },
     });
   }, []);
 
@@ -65,6 +72,36 @@ const Index = () => {
     });
     clearAlgorithmResults();
   }, [clearAlgorithmResults]);
+
+  // Track previous difficulty and gridSize to regenerate maze when they change
+  const prevDifficultyRef = useRef(mazeDifficulty);
+  const prevGridSizeRef = useRef(gridSize);
+
+  // Generate maze when difficulty or gridSize changes and both start and target are set
+  useEffect(() => {
+    const difficultyChanged = prevDifficultyRef.current !== mazeDifficulty;
+    const gridSizeChanged = prevGridSizeRef.current !== gridSize;
+    
+    if ((difficultyChanged || gridSizeChanged) && gridState.start && gridState.target && !gridState.isRunning) {
+      const baseGrid = createEmptyGrid(gridSize);
+      const newGrid = generateMaze(
+        baseGrid,
+        gridState.start,
+        gridState.target,
+        mazeDifficulty,
+        gridSize
+      );
+      setGridState((prev) => ({
+        ...prev,
+        grid: newGrid,
+        isComplete: false,
+      }));
+      clearAlgorithmResults();
+    }
+    
+    prevDifficultyRef.current = mazeDifficulty;
+    prevGridSizeRef.current = gridSize;
+  }, [mazeDifficulty, gridSize, gridState.start, gridState.target, gridState.isRunning, clearAlgorithmResults]);
 
   const handleCellClick = useCallback(
     (row: number, col: number) => {
@@ -83,30 +120,34 @@ const Index = () => {
             newGrid[prev.start.row][prev.start.col].type = 'default';
           }
           cell.type = 'start';
-          return { ...prev, grid: newGrid, start: { row, col } };
+          const newStart = { row, col };
+          // Generate maze if target is already set
+          let finalGrid = newGrid;
+          if (prev.target) {
+            finalGrid = generateMaze(newGrid, newStart, prev.target, mazeDifficulty, gridSize);
+          }
+          return { ...prev, grid: finalGrid, start: newStart };
         } else if (mode === 'target') {
           if (prev.target) {
             newGrid[prev.target.row][prev.target.col].type = 'default';
           }
           cell.type = 'target';
-          return { ...prev, grid: newGrid, target: { row, col } };
-        } else if (mode === 'wall') {
-          // Toggle wall
-          if (cell.type === 'wall') {
-            cell.type = 'default';
-          } else if (cell.type === 'default') {
-            cell.type = 'wall';
+          const newTarget = { row, col };
+          // Generate maze if start is already set
+          let finalGrid = newGrid;
+          if (prev.start) {
+            finalGrid = generateMaze(newGrid, prev.start, newTarget, mazeDifficulty, gridSize);
           }
-          return { ...prev, grid: newGrid };
+          return { ...prev, grid: finalGrid, target: newTarget };
         }
 
         return prev;
       });
     },
-    [mode, gridState.isRunning, gridState.isComplete, clearAlgorithmResults]
+    [mode, gridState.isRunning, gridState.isComplete, clearAlgorithmResults, mazeDifficulty, gridSize]
   );
 
-  const runAlgorithm = useCallback(async (algorithm: 'aStar' | 'bfs' | 'dfs') => {
+  const runAlgorithm = useCallback(async (algorithm: 'aStar' | 'bfs' | 'dfs' | 'dijkstra') => {
     if (!gridState.start || !gridState.target) {
       toast({
         title: 'Error',
@@ -137,6 +178,9 @@ const Index = () => {
         break;
       case 'dfs':
         result = findPathDFS(clearedGrid, gridState.start, gridState.target);
+        break;
+      case 'dijkstra':
+        result = findPathDijkstra(clearedGrid, gridState.start, gridState.target);
         break;
     }
 
@@ -185,14 +229,65 @@ const Index = () => {
     }
 
     // Update algorithm results
-    setAlgorithmResults((prev) => ({
-      ...prev,
+    const newResults = {
+      ...algorithmResults,
       [algorithm]: {
         pathLength: result.path.length,
         visitedCount: result.visited.length,
         hasRun: true,
       },
-    }));
+    };
+    setAlgorithmResults(newResults);
+
+    // Collect data for ML training when all algorithms have run
+    if (
+      gridState.start &&
+      gridState.target &&
+      (newResults.aStar.hasRun || newResults.bfs.hasRun || newResults.dfs.hasRun || newResults.dijkstra.hasRun)
+    ) {
+      // Check if we have results from all algorithms
+      const allRun =
+        newResults.aStar.hasRun &&
+        newResults.bfs.hasRun &&
+        newResults.dfs.hasRun &&
+        newResults.dijkstra.hasRun;
+
+      if (allRun) {
+        try {
+          const features = extractMazeFeatures(
+            gridState.grid,
+            gridState.start,
+            gridState.target,
+            gridSize
+          );
+          collectData(
+            features,
+            {
+              aStar: {
+                pathLength: newResults.aStar.pathLength,
+                visitedCount: newResults.aStar.visitedCount,
+              },
+              bfs: {
+                pathLength: newResults.bfs.pathLength,
+                visitedCount: newResults.bfs.visitedCount,
+              },
+              dfs: {
+                pathLength: newResults.dfs.pathLength,
+                visitedCount: newResults.dfs.visitedCount,
+              },
+              dijkstra: {
+                pathLength: newResults.dijkstra.pathLength,
+                visitedCount: newResults.dijkstra.visitedCount,
+              },
+            },
+            mazeDifficulty,
+            gridSize
+          );
+        } catch (error) {
+          console.error('Data collection error:', error);
+        }
+      }
+    }
 
     setGridState((prev) => ({ ...prev, isRunning: false, isComplete: true }));
 
@@ -205,6 +300,7 @@ const Index = () => {
   const handleRunAStar = useCallback(() => runAlgorithm('aStar'), [runAlgorithm]);
   const handleRunBFS = useCallback(() => runAlgorithm('bfs'), [runAlgorithm]);
   const handleRunDFS = useCallback(() => runAlgorithm('dfs'), [runAlgorithm]);
+  const handleRunDijkstra = useCallback(() => runAlgorithm('dijkstra'), [runAlgorithm]);
 
   const handleClearGrid = useCallback(() => {
     setGridState({
@@ -241,15 +337,25 @@ const Index = () => {
               onRunAStar={handleRunAStar}
               onRunBFS={handleRunBFS}
               onRunDFS={handleRunDFS}
+              onRunDijkstra={handleRunDijkstra}
               onClearGrid={handleClearGrid}
               isRunning={gridState.isRunning}
               gridSize={gridSize}
               onGridSizeChange={handleGridSizeChange}
+              mazeDifficulty={mazeDifficulty}
+              onMazeDifficultyChange={setMazeDifficulty}
+            />
+            <AutoSelector
+              grid={gridState.grid}
+              start={gridState.start}
+              target={gridState.target}
+              gridSize={gridSize}
             />
             <AlgorithmResults
               aStarResult={algorithmResults.aStar}
               bfsResult={algorithmResults.bfs}
               dfsResult={algorithmResults.dfs}
+              dijkstraResult={algorithmResults.dijkstra}
             />
           </div>
 
@@ -271,7 +377,7 @@ const Index = () => {
             🎮 Algorithm Battle Arena - Where Champions Compete! 🎮
           </p>
           <p className="text-sm text-gray-500 mt-2">
-            Watch A*, BFS, and DFS algorithms battle for supremacy in pathfinding efficiency
+            Watch A*, BFS, DFS, and Dijkstra algorithms battle for supremacy in pathfinding efficiency
           </p>
         </div>
       </div>

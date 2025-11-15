@@ -11,42 +11,49 @@ interface AlgorithmResultsProps {
   aStarResult: AlgorithmResult;
   bfsResult: AlgorithmResult;
   dfsResult: AlgorithmResult;
+  dijkstraResult: AlgorithmResult;
 }
 
-const AlgorithmResults = ({ aStarResult, bfsResult, dfsResult }: AlgorithmResultsProps) => {
+const AlgorithmResults = ({ aStarResult, bfsResult, dfsResult, dijkstraResult }: AlgorithmResultsProps) => {
   const algorithms = [
     { name: 'A* (A-Star)', result: aStarResult },
     { name: 'BFS (Breadth-First)', result: bfsResult },
     { name: 'DFS (Depth-First)', result: dfsResult },
+    { name: 'Dijkstra', result: dijkstraResult },
   ];
 
   // Check if all algorithms have been run
-  const allAlgorithmsRun = aStarResult.hasRun && bfsResult.hasRun && dfsResult.hasRun;
+  const allAlgorithmsRun = aStarResult.hasRun && bfsResult.hasRun && dfsResult.hasRun && dijkstraResult.hasRun;
 
-  // Find the winner (algorithm with best performance: least nodes visited + shortest path)
+  // Find the winner (algorithm with best performance: shortest path first, then least nodes visited)
   const getWinner = () => {
-    if (!allAlgorithmsRun) return null;
-    
     const results = [
       { name: 'A* (A-Star)', result: aStarResult },
       { name: 'BFS (Breadth-First)', result: bfsResult },
       { name: 'DFS (Depth-First)', result: dfsResult },
+      { name: 'Dijkstra', result: dijkstraResult },
     ].filter(({ result }) => result.hasRun);
 
     if (results.length === 0) return null;
 
-    // Calculate performance score (lower is better): nodes visited + path length
-    const scoredResults = results.map(({ name, result }) => ({
-      name,
-      score: result.visitedCount + result.pathLength,
-      result
-    }));
+    // Sort by path length first (ascending), then by nodes visited (ascending)
+    const sortedResults = [...results].sort((a, b) => {
+      // Ensure we're comparing numbers
+      const pathLengthA = Number(a.result.pathLength) || 0;
+      const pathLengthB = Number(b.result.pathLength) || 0;
+      const visitedCountA = Number(a.result.visitedCount) || 0;
+      const visitedCountB = Number(b.result.visitedCount) || 0;
 
-    const winner = scoredResults.reduce((best, current) => 
-      current.score < best.score ? current : best
-    );
+      // First priority: path length (lower is better)
+      if (pathLengthA !== pathLengthB) {
+        return pathLengthA - pathLengthB;
+      }
+      // Second priority: nodes visited (lower is better)
+      return visitedCountA - visitedCountB;
+    });
 
-    return winner.name;
+    // Winner is the first one after sorting
+    return sortedResults[0].name;
   };
 
   const winner = getWinner();

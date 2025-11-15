@@ -255,3 +255,85 @@ export const findPathDFS = (
     found: false,
   };
 };
+
+// Dijkstra Algorithm implementation
+export const findPathDijkstra = (
+  grid: Cell[][],
+  startPos: { row: number; col: number },
+  targetPos: { row: number; col: number }
+): PathfindingResult => {
+  // Reset grid costs
+  for (let row of grid) {
+    for (let cell of row) {
+      cell.g = Infinity;
+      cell.h = 0;
+      cell.f = Infinity;
+      cell.parent = null;
+    }
+  }
+
+  const start = grid[startPos.row][startPos.col];
+  const target = grid[targetPos.row][targetPos.col];
+
+  const unvisited: Cell[] = [];
+  const visited: Cell[] = [];
+  const visitedSet = new Set<string>();
+
+  // Initialize all cells with infinite distance
+  for (let row of grid) {
+    for (let cell of row) {
+      if (cell.type !== 'wall') {
+        unvisited.push(cell);
+      }
+    }
+  }
+
+  start.g = 0;
+
+  while (unvisited.length > 0) {
+    // Find cell with minimum distance
+    let minIndex = 0;
+    for (let i = 1; i < unvisited.length; i++) {
+      if (unvisited[i].g < unvisited[minIndex].g) {
+        minIndex = i;
+      }
+    }
+
+    const current = unvisited.splice(minIndex, 1)[0];
+    visited.push(current);
+    visitedSet.add(`${current.row},${current.col}`);
+
+    // Check if we reached the target
+    if (current.row === target.row && current.col === target.col) {
+      return {
+        path: reconstructPath(current),
+        visited,
+        found: true,
+      };
+    }
+
+    // Check all neighbors
+    const neighbors = getNeighbors(current, grid);
+
+    for (const neighbor of neighbors) {
+      // Skip if neighbor is a wall or already visited
+      if (neighbor.type === 'wall' || visitedSet.has(`${neighbor.row},${neighbor.col}`)) {
+        continue;
+      }
+
+      const tentativeG = current.g + 1; // Cost is 1 per step
+
+      if (tentativeG < neighbor.g) {
+        neighbor.parent = current;
+        neighbor.g = tentativeG;
+      }
+    }
+  }
+
+  // No path found
+  return {
+    path: [],
+    visited,
+    found: false,
+  };
+};

@@ -1,8 +1,9 @@
 import { Mode } from '@/types/grid';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Play, RotateCcw, MapPin, Target, Square } from 'lucide-react';
+import { Play, RotateCcw, MapPin, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MazeDifficulty } from '@/utils/mazeGenerator';
 
 interface ControlsProps {
   mode: Mode;
@@ -10,10 +11,13 @@ interface ControlsProps {
   onRunAStar: () => void;
   onRunBFS: () => void;
   onRunDFS: () => void;
+  onRunDijkstra: () => void;
   onClearGrid: () => void;
   isRunning: boolean;
   gridSize: number;
   onGridSizeChange: (size: number) => void;
+  mazeDifficulty: MazeDifficulty;
+  onMazeDifficultyChange: (difficulty: MazeDifficulty) => void;
 }
 
 const Controls = ({
@@ -22,22 +26,24 @@ const Controls = ({
   onRunAStar,
   onRunBFS,
   onRunDFS,
+  onRunDijkstra,
   onClearGrid,
   isRunning,
   gridSize,
   onGridSizeChange,
+  mazeDifficulty,
+  onMazeDifficultyChange,
 }: ControlsProps) => {
   const modes: { value: Mode; label: string; icon: React.ReactNode }[] = [
     { value: 'start', label: 'Set Start', icon: <MapPin className="w-4 h-4" /> },
     { value: 'target', label: 'Set Target', icon: <Target className="w-4 h-4" /> },
-    { value: 'wall', label: 'Draw Walls', icon: <Square className="w-4 h-4" /> },
   ];
 
   return (
     <Card className="w-full gaming-card">
       <CardHeader>
         <CardTitle className="text-2xl font-bold text-gray-800">🎮 Battle Controls</CardTitle>
-        <CardDescription className="text-gray-600">Click on the grid to place start, target, and walls</CardDescription>
+        <CardDescription className="text-gray-600">Set start and target, then maze will be generated automatically</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Grid Size Selection */}
@@ -65,7 +71,7 @@ const Controls = ({
           <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
             🎯 Battle Setup
           </label>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {modes.map(({ value, label, icon }) => (
               <Button
                 key={value}
@@ -76,6 +82,26 @@ const Controls = ({
               >
                 {icon}
                 <span className="text-xs sm:text-sm">{label}</span>
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {/* Maze Difficulty Selection */}
+        <div className="space-y-3">
+          <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+            🎲 Maze Difficulty
+          </label>
+          <div className="grid grid-cols-3 gap-2">
+            {(['easy', 'medium', 'hard'] as MazeDifficulty[]).map((difficulty) => (
+              <Button
+                key={difficulty}
+                variant={mazeDifficulty === difficulty ? 'default' : 'outline'}
+                onClick={() => onMazeDifficultyChange(difficulty)}
+                disabled={isRunning}
+                className="interactive-button mobile-button flex items-center justify-center gap-2 font-bold text-sm md:text-base capitalize"
+              >
+                {difficulty}
               </Button>
             ))}
           </div>
@@ -110,6 +136,14 @@ const Controls = ({
             >
               <Play className="w-4 h-4" />
               🔥 DFS (Deep Explorer)
+            </Button>
+            <Button
+              onClick={onRunDijkstra}
+              disabled={isRunning}
+              className="interactive-button mobile-button flex items-center justify-center gap-3 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white font-bold text-sm md:text-base py-3"
+            >
+              <Play className="w-4 h-4" />
+              ⚡ Dijkstra (Path Master)
             </Button>
           </div>
         </div>
